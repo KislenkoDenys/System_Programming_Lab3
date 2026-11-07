@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>AST Visualizer (D3.js)</title>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 20px;
+            background-color: #f4f6f9;
+            color: #333;
+        }
+        h2 { margin-bottom: 8px; }
+        .controls {
+            margin-bottom: 16px;
+            padding: 12px 16px;
+            background: #fff;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.08);
+            display: inline-block;
+        }
+        #tree-container {
+            width: 100%;
+            height: 700px;
+            background: #ffffff;
+            border: 1px solid #dcdcdc;
+            border-radius: 8px;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.05);
+            overflow: hidden;
+            cursor: grab;
+        }
+        #tree-container:active { cursor: grabbing; }
+        .node circle {
+            fill: #3b82f6;
+            stroke: #1d4ed8;
+            stroke-width: 2px;
+            transition: all 0.2s;
+        }
+        .node:hover circle {
+            fill: #ef4444;
+            stroke: #b91c1c;
+            r: 14;
+        }
+        .node text {
+            font-size: 13px;
+            font-weight: 600;
+            fill: #1f2937;
+            text-shadow: 1px 1px 0 #fff, -1px -1px 0 #fff, 1px -1px 0 #fff, -1px 1px 0 #fff;
+        }
+        .link {
+            fill: none;
+            stroke: #94a3b8;
+            stroke-width: 2px;
+        }
+    </style>
+</head>
+<body>
+
+    <h2>Abstract Syntax Tree (AST) Visualization</h2>
+    <div class="controls">
+        <label for="fileInput"><b>Select ast.json file: </b></label>
+        <input type="file" id="fileInput" accept=".json">
+        <span style="margin-left: 15px; color: #666; font-size: 13px;">(Drag to pan, scroll wheel to zoom)</span>
+    </div>
+
+    <div id="tree-container"></div>
+
+    <script>
+        document.getElementById('fileInput').addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = function(event) {
+                try {
+                    const data = JSON.parse(event.target.result);
+                    renderTree(data);
+                } catch (err) {
+                    alert("Error parsing JSON: " + err.message);
+                }
+            };
+            reader.readAsText(file);
+        });
+
+        function renderTree(data) {
+            const container = document.getElementById("tree-container");
+            const width = container.clientWidth || 1200;
+            const height = container.clientHeight || 700;
+
+            d3.select("#tree-container").selectAll("*").remove();
+
+            const svg = d3.select("#tree-container").append("svg")
+                .attr("width", width)
+                .attr("height", height);
+
+            const g = svg.append("g");
+
+            svg.call(d3.zoom()
+                .scaleExtent([0.2, 3])
+                .on("zoom", (event) => {
+                    g.attr("transform", event.transform);
+                }));
+
+            const treeLayout = d3.tree()
+                .size([width - 160, height - 200])
+                .separation((a, b) => (a.parent === b.parent ? 1.4 : 1.8));
+
+            const root = d3.hierarchy(data);
+            treeLayout(root);
+
+            g.attr("transform", "translate(80, 80)");
+
+            g.selectAll(".link")
+                .data(root.links())
+                .enter().append("path")
+                .attr("class", "link")
+                .attr("d", d3.linkVertical()
+                    .x(d => d.x)
+                    .y(d => d.y));
+
+            const node = g.selectAll(".node")
+                .data(root.descendants())
+                .enter().append("g")
+                .attr("class", "node")
+                .attr("transform", d => `translate(${d.x},${d.y})`);
+
+            node.append("circle")
+                .attr("r", 9);
+
+            node.append("text")
+                .attr("dy", d => d.children ? -14 : 20)
+                .attr("text-anchor", "middle")
+                .text(d => d.data.name);
+        }
+    </script>
+</body>
+</html>
